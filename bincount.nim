@@ -42,6 +42,24 @@ proc error( s: varargs[string, `$`]) =
   inc error_count
   stderr.writeLine "\e[0;31m", line_count, s.join " " , "\e[0m"
 
+proc query(arg: seq[string]) =
+  # TODO: find a better name for the variable
+  if arg.len > 0:
+    echo: center "FILTER", 40, '-'
+    var printable_accountTable = {(account: "*", commodity : default_com): 0.0}.toOrderedTable
+    for key in arg:
+      printable_accountTable[(account: key.normalize, commodity : default_com)] = 0.0
+    for k in printableAccountTable.keys:
+      for (key, value) in accountTable.pairs:
+        if key.account == k.account and key.commodity == k.commodity:
+          printable_accountTable[k] += value 
+        elif k.account[^1] == '*' and
+        key.account.startswith(k.account[0..^2]) and
+        key.commodity == k.commodity:
+            printable_accountTable[k] += value 
+    for (key, value) in printable_accountTable.pairs:
+              echo "  ", key.account.alignLeft 23, value.round(2).`$`.align 10, " ", key.commodity
+
 for line in arg.file.lines:
   line_count += 1
   ## DOUBLE ENTRY
@@ -73,7 +91,7 @@ for line in arg.file.lines:
   ## you can start a new transaction parsing only if balance is 0.0
   block directive:
       var (c, date, dir, w) = line.normalize.scantuple "$+ $+ $+"
-      if not( dir in ["*", "!", "D", "open", "close", "commodity", "document", "option", "event", "price", "pad", "custom"] ):
+      if not( dir in ["*", "!", "D", "open", "close", "commodity", "document", "option", "event", "price", "pad", "query","custom"] ):
           continue
       var  y, m, d : int
       if not scanf( date, "$i-$i-$i", y, m, d ):
@@ -108,6 +126,8 @@ for line in arg.file.lines:
             # only for commodities with default_currency value
             var (binbool, currency, amount) = w.scantuple "$+ $f"
             price_table[currency] = amount
+        of "query":
+          query w.splitWhitespace
   ## print data
   if arg.print: echo line
 
@@ -124,7 +144,6 @@ block stats:
 
 block accounts:
   # after reaching the end, print accounts data
-
   if arg.accounts == true:
     echo: center "ACCOUNTS", 40, '-'
     for (key, value) in accountTable.pairs:
@@ -132,19 +151,5 @@ block accounts:
     echo: center "PRICES", 40, '-'
     for (key, value) in price_table.pairs:
         echo "  ", key.alignLeft 23, value.`$`.align 10, " ", default_com
-  
-  if arg.arguments.len > 0:
-    echo: center "FILTER", 40, '-'
-    var printable_accountTable = {(account: "*", commodity : default_com): 0.0}.toOrderedTable
-    for key in arg.arguments:
-      printable_accountTable[(account: key.normalize, commodity : default_com)] = 0.0
-    for k in printableAccountTable.keys:
-      for (key, value) in accountTable.pairs:
-        if key.account == k.account and key.commodity == k.commodity:
-          printable_accountTable[k] += value 
-        elif k.account[^1] == '*' and
-        key.account.startswith(k.account[0..^2]) and
-        key.commodity == k.commodity:
-            printable_accountTable[k] += value 
-    for (key, value) in printable_accountTable.pairs:
-              echo "  ", key.account.alignLeft 23, value.round(2).`$`.align 10, " ", key.commodity
+
+query(arg.arguments)

@@ -23,6 +23,7 @@ let arg = get_options:
     file:string {.bare, required.}
     c:string = ""           {.description("set the main currency").}
     print:bool              {.description("print and fix the input file while reading").}
+    print_title:bool        {.description("🧪 - print only the directive").}
     accounts:bool           {.description("print the final list of open accounts").}
     wrong_assuption:bool    {.description("makes wrong assumption about data").}
     max_date = "9999-12-31" {.description("YYYY-MM-DD ignore transaction after the given date").}
@@ -74,9 +75,15 @@ for line in arg.file.lines:
           of "@@": (amount2, commodity2)
           of "@": (amount1 * amount2, commodity2)
           of "", ";", "\r": 
+            if amount1 == 0 and commodity1 == "//":
+              (0.0 - balance[default_com], default_com)
+            else:
               (amount1, commodity1)
-          of "//": ( 0.0 - balance[commodity1], commodity1) # for . USD //
-          else: (0.0, default_com)
+          of "//":
+              ( 0.0 - balance[commodity1], commodity1) # for . USD //
+          else: 
+            error "WTF"
+            (0.0, default_com)
       # get base value from price directive
       balance[default_com] +=  amount * pricetable[commodity]
       accountTable[(account, default_com)] += amount * pricetable[commodity]
@@ -99,11 +106,13 @@ for line in arg.file.lines:
           continue
       ## now you are "sure" you are on a directive line 
       if balance[default_com] != 0:
-          error " ; previous transaction is not balanced"
+          error " previous transaction is not balanced"
           balance[default_com] = 0
 
       readingpost = false
-      if date > arg.max_date: continue
+      if date > arg.max_date: 
+          error "max date reached"
+          continue
 
       (binbool, account, commodity) = w.scantuple "$+ $+"
       case dir:
@@ -111,17 +120,26 @@ for line in arg.file.lines:
             if not accountTable.hasKey (account, default_com):
               accountTable[(account, default_com)] = 0.0
             if not accountTable.hasKey (account, commodity):
-              if commodity != "": accountTable[(account, commodity)] = 0.0
+              if commodity != "": 
+                accountTable[(account, commodity)] = 0.0
         of "close":
-            if accountTable[(account, commodity)] == 0.0: del accountTable, (account, commodity)
+            if accountTable[(account, commodity)] == 0.0:
+              del accountTable, (account, commodity)
         of "balance":
             var (binbool, account, amount, commodity) = w.scantuple "$+ $f $+"
-            accountTable[(account, commodity)] = amount
+            if arg.wrong_assuption: accountTable[(account, commodity)] = amount
+            elif accountTable[(account, commodity)] != amount:
+              error "no balance for ", account, " ", commodity
         of "pad":
             accountTable[(commodity, default_com)] += accountTable[(account, default_com)]
             accountTable[(account, default_com)] = 0.0
         of "*", "P":
             readingpost = true
+            # inline transaction
+            var (binbool, account1, account2, amount, commodity) = w.normalize.scantuple "$+ $+ $f $+"
+            if binbool and accountTable.hasKey((account1, commodity)) and accountTable.hasKey((account2, commodity)):
+                accountTable[(account1, commodity)] -= amount
+                accountTable[(account2, commodity)] += amount
         of "price":
             # only for commodities with default_currency value
             var (binbool, currency, amount) = w.scantuple "$+ $f"
@@ -129,7 +147,7 @@ for line in arg.file.lines:
         of "query":
           query w.splitWhitespace
   ## print data
-  if arg.print: echo line
+  if arg.print or arg.print_title: echo line
 
 block stats:
   # Time period               : 2021-12-01 to 2022-01-15 (6 weeks 3 days)

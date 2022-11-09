@@ -50,7 +50,7 @@ proc query(arg: seq[string]) =
     var printable_accountTable = {(account: "*", commodity : default_com): 0.0}.toOrderedTable
     for key in arg:
       printable_accountTable[(account: key.normalize, commodity : default_com)] = 0.0
-    for k in printableAccountTable.keys:
+    for k in printable_accountTable.keys:
       for (key, value) in accountTable.pairs:
         if key.account == k.account and key.commodity == k.commodity:
           printable_accountTable[k] += value 
@@ -69,7 +69,7 @@ for line in arg.file.lines:
   block post:
     var amount1: float
     var restofstring:string
-    if scanf(line.normalize, "$+ $f$s$*$.", account, amount1, restofstring) and readingpost == true:
+    if scanf( line.normalize, "$+ $f$s$*$.", account, amount1, restofstring ) and readingpost == true:
       var (a, commodity1, m, amount2, commodity2) = restofstring.scanTuple "$s$+ $+ $f $w"
       var (amount, commodity) = case m:
           of "@@": (amount2, commodity2)

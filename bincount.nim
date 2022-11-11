@@ -1,5 +1,6 @@
 import tables, hashes, strscans
 import strutils except normalize
+from terminal import isatty
 from times import getDateStr
 from math import round
 
@@ -20,7 +21,7 @@ func normalize(s: string): string  =
 
 import simple_parseopt
 let arg = get_options:
-    file:string {.bare, required.}
+    file:string {.bare.}
     c:string = ""           {.description("set the main currency").}
     print:bool              {.description("print and fix the input file while reading").}
     print_title:bool        {.description("🧪 - print only the directive").}
@@ -61,7 +62,9 @@ proc query(arg: seq[string]) =
     for (key, value) in printable_accountTable.pairs:
               echo "  ", key.account.alignLeft 23, value.round(2).`$`.align 10, " ", key.commodity
 
-for line in arg.file.lines:
+var file = if stdin.isatty: open(arg.file) else: stdin
+# TODO: WEIRD BUG somehow, with powershell the stdin skip the first line of data...
+for line in file.lines:
   line_count += 1
   ## DOUBLE ENTRY
   ##`   account:pollo:x     10_000 EUR @ 200 USD ; Comment
@@ -102,7 +105,7 @@ for line in arg.file.lines:
           continue
       var  y, m, d : int
       if not scanf( date, "$i-$i-$i", y, m, d ):
-          assert m > 13 and d > 31
+          # assert m > 13 and d > 31
           continue
       ## now you are "sure" you are on a directive line 
       if balance[default_com] != 0:

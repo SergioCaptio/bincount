@@ -1,10 +1,10 @@
-import tables, hashes, strscans
+import tables, strscans
 import strutils except normalize
 from terminal import isatty
 from times import getDateStr
-from math import round
 
 func normalize(s: string): string  =
+  # return s # if you dont want string normalization uncomment and remove the following lines
   result = newString(s.len)
   var j = 0
   for i in 0..len(s) - 1:
@@ -21,9 +21,9 @@ func normalize(s: string): string  =
 
 import simple_parseopt
 let arg = get_options:
-    file:string {.bare.}
-    c:string = ""           {.description("set the main currency").}
-    print:bool              {.description("print and fix the input file while reading").}
+    file:string             {.bare.}
+    c:string = ""           {.description("set the operating currency").}
+    print:bool              {.description("print and fix the input filel while reading").}
     print_title:bool        {.description("🧪 - print only the directive").}
     accounts:bool           {.description("print the final list of open accounts").}
     wrong_assuption:bool    {.description("makes wrong assumption about data").}
@@ -45,7 +45,7 @@ proc error( s: varargs[string, `$`]) =
   stderr.writeLine "\e[0;31m", line_count, s.join " " , "\e[0m"
 
 proc query(arg: seq[string]) =
-  # TODO: find a better name for the variable
+  # TODO: find a better name for the variable annd procedure
   if arg.len > 0:
     echo: center "FILTER", 40, '-'
     var printable_accountTable = {(account: "*", commodity : default_com): 0.0}.toOrderedTable
@@ -60,7 +60,7 @@ proc query(arg: seq[string]) =
         key.commodity == k.commodity:
             printable_accountTable[k] += value 
     for (key, value) in printable_accountTable.pairs:
-              echo "  ", key.account.alignLeft 23, value.round(2).`$`.align 10, " ", key.commodity
+              echo "  ", key.account.alignLeft 23, value.formatFloat(ffDecimal,2).align 10, " ", key.commodity
 
 var file = if stdin.isatty: open(arg.file) else: stdin
 # TODO: WEIRD BUG somehow, with powershell the stdin skip the first line of data...
@@ -73,7 +73,7 @@ for line in file.lines:
     var amount1: float
     var restofstring:string
     if scanf( line.normalize, "$+ $f$s$*$.", account, amount1, restofstring ) and readingpost == true:
-      var (a, commodity1, m, amount2, commodity2) = restofstring.scanTuple "$s$+ $+ $f $w"
+      var (_, commodity1, m, amount2, commodity2) = restofstring.scanTuple "$s$+ $+ $f $w"
       var (amount, commodity) = case m:
           of "@@": (amount2, commodity2)
           of "@": (amount1 * amount2, commodity2)
@@ -94,13 +94,13 @@ for line in file.lines:
         balance[commodity] += amount
         accountTable[(account, commodity)] += amount
       ## print data
-      if arg.print: echo "  ", account.alignLeft 23, amount.round(2).`$`.align 10," ", commodity
+      if arg.print: echo "  ", account.alignLeft 23, amount.formatFloat(ffDecimal,2).align 10," ", commodity
   
   ## DIRECTIVE
   ##` 2015-01-02 balance Assets:US:BofA:Checking        4841.12 USD
   ## you can start a new transaction parsing only if balance is 0.0
   block directive:
-      var (c, date, dir, w) = line.normalize.scantuple "$+ $+ $+"
+      var (_, date, dir, w) = line.normalize.scantuple "$+ $+ $+"
       if not( dir in ["*", "!", "D", "open", "close", "commodity", "document", "option", "event", "price", "pad", "query","custom"] ):
           continue
       var  y, m, d : int
@@ -129,7 +129,7 @@ for line in file.lines:
             if accountTable[(account, commodity)] == 0.0:
               del accountTable, (account, commodity)
         of "balance":
-            var (binbool, account, amount, commodity) = w.scantuple "$+ $f $+"
+            var (_, account, amount, commodity) = w.scantuple "$+ $f $+"
             if arg.wrong_assuption: accountTable[(account, commodity)] = amount
             elif accountTable[(account, commodity)] != amount:
               error "no balance for ", account, " ", commodity
@@ -145,10 +145,14 @@ for line in file.lines:
                 accountTable[(account2, commodity)] += amount
         of "price":
             # only for commodities with default_currency value
-            var (binbool, currency, amount) = w.scantuple "$+ $f"
+            var (_, currency, amount) = w.scantuple "$+ $f"
             price_table[currency] = amount
         of "query":
           query w.splitWhitespace
+        of "option":
+          case account:
+            of "default_com", "operating_currency", : default_com = commodity
+            of "documents": discard
   ## print data
   if arg.print or arg.print_title: echo line
 
@@ -168,9 +172,10 @@ block accounts:
   if arg.accounts == true:
     echo: center "ACCOUNTS", 40, '-'
     for (key, value) in accountTable.pairs:
-        echo "  ", key.account.alignLeft 23, value.`$`.align 10, " ", key.commodity
+        echo "  ", key.account.alignLeft 23, value.formatFloat(ffDecimal,2).align 10, " ", key.commodity
+        # echo "{\"name\":", key.account, "\",value\":", value, "\",commodity\":", key.commodity, "}"
     echo: center "PRICES", 40, '-'
     for (key, value) in price_table.pairs:
-        echo "  ", key.alignLeft 23, value.`$`.align 10, " ", default_com
+        echo "  ", key.alignLeft 23, value.formatFloat(ffDecimal,2).align 10, " ", default_com
 
 query(arg.arguments)

@@ -11,7 +11,7 @@ Arguments:
  file
  arguments          account names (allow incomplete naming eg. Asset:*)
 Options:
- -c                  set the main currency
+ -c                  set the operating currency
  -print              print and fix the input file while reading
  -accounts           print the final list of open accounts
  -wrong-assuption    makes wrong assumption about data
@@ -48,11 +48,11 @@ Known bug:
 ### How does it compare to Beancount?
  - ignores correctly transactions flagged with **!** or **P**.
  - no *metatag* support. it's a text file, use a search utility.
- - force strict mode for default currency (transactions must balance).
- - only two commodity positions (instead of 3) + the default currency position.
+ - force strict mode for operating currency (transactions must balance).
+ - only two commodity positions (instead of 3) + the operating currency position.
    [^](beancount.github.io/docs/beancount_language_syntax.html#reducing-positions)
- - supports **pad** directive for account in default currency (but it does not insert a new transaction).
- - requires **open** directive for accounts, and **price** directive in default currency.
+ - supports **pad** directive for account in operating currency (but it does not insert a new transaction).
+ - requires **open** directive for accounts, and **price** directive with conversion rate in operating currency.
 
 ### Why my Accounts and Currencies names are no longer capitalized?
 I don't care, Nim-lang doesn't care, and Bincount doesn't care 
@@ -97,8 +97,7 @@ assumptions about user data.
 eg.
  - the balance directive overwrite the account amount.
  - options are not only in the first 10 lines of the file
- - if a price is missing for a commodity, assume a 1:1 with 
-base_currency
+ - if a price is missing for a commodity, assume a 1:1 with operating currency
 
 
 ----------------------------------------------------------------
